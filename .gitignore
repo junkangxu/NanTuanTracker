@@ -1,0 +1,14 @@
+*.js
+!jest.config.js
+*.d.ts
+node_modules
+
+# CDK asset staging directory
+.cdk.staging
+cdk.out
+
+# Rust lambda directory
+poller/target/
+poller/debug/
+poller/Cargo.lock
+poller/src/.DS_Store
