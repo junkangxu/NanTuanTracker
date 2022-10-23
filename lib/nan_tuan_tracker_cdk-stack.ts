@@ -1,4 +1,5 @@
-import { Stack, StackProps, aws_lambda, aws_dynamodb, aws_iam, Duration } from 'aws-cdk-lib';
+import { Stack, StackProps, aws_lambda, aws_dynamodb, aws_iam, Duration, aws_events_targets, aws_events } from 'aws-cdk-lib';
+import { Schedule } from 'aws-cdk-lib/aws-events';
 import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
@@ -27,12 +28,17 @@ export class NanTuanTrackerCdkStack extends Stack {
       handler: 'not.required',
       environment: {
         RUST_BACKTRACE: '1',
-        STRATZ_JWT: '<insert your stratz jwt>',
-        DISCORD_WEBHOOK_URL: '<insert your discord webhook>',
+        STRATZ_JWT: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiJodHRwczovL3N0ZWFtY29tbXVuaXR5LmNvbS9vcGVuaWQvaWQvNzY1NjExOTgxNTYxMzIyMDMiLCJ1bmlxdWVfbmFtZSI6IllvdGVsbCIsIlN1YmplY3QiOiJjZDNmMTJlOS1iMTg2LTRjNjMtYTg4NC1iZmE0NjQxMjg4OWMiLCJTdGVhbUlkIjoiMTk1ODY2NDc1IiwibmJmIjoxNjM2NzAwNjE2LCJleHAiOjE2NjgyMzY2MTYsImlhdCI6MTYzNjcwMDYxNiwiaXNzIjoiaHR0cHM6Ly9hcGkuc3RyYXR6LmNvbSJ9.znoKKTrxQB1BtnxH5zsf8oitr6jj_vN8rm8Dr6NyFWQ',
+        DISCORD_WEBHOOK_URL: 'https://discord.com/api/webhooks/1031066435075702824/gEnNJ2960J02TkOYQGhN1baIe5uDHBltYv5Vd5H4NUmY4B-uj6Ozr9DZTwqtb5PN3DAD',
       },
       logRetention: RetentionDays.ONE_DAY,
       role: lambdaRole,
       timeout: Duration.seconds(30)
+    });
+
+    const lambdaEventRule = new aws_events.Rule(this, 'lambdaScheduleRule', {
+      schedule: Schedule.rate(Duration.minutes(5)),
+      targets: [new aws_events_targets.LambdaFunction(pollerLambda)]
     });
 
     const guildIdTable = new aws_dynamodb.Table(this , "GuildIdTable", {
