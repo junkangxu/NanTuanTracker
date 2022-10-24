@@ -53,29 +53,30 @@ async fn process() -> Result<(), Error> {
     let guild_name: String = guild.name.ok_or_else(|| PollerError::Parser(ParserError::Guild))?;
     let guild_logo: String = guild.logo.ok_or_else(|| PollerError::Parser(ParserError::Guild))?;
     let guild_matches: Vec<Option<stratz::api::Match>> = guild.matches.ok_or_else(|| PollerError::Parser(ParserError::Guild))?;
+
+    let shared_config = aws_config::load_from_env().await;
+    let dynamo_client = aws_sdk_dynamodb::Client::new(&shared_config);
+    let current_match_id = get_current_match_id(&dynamo_client).await?;
+    let mut latest_match_id = current_match_id;
+    
     for guild_match in guild_matches.into_iter().rev() {
         let guild_match = guild_match.ok_or_else(|| PollerError::Parser(ParserError::Guild))?;
-        let shared_config = aws_config::load_from_env().await;
-        let dynamo_client = aws_sdk_dynamodb::Client::new(&shared_config);
         let match_id = guild_match.id.ok_or_else(|| PollerError::Parser(ParserError::Match))?;
-
-        if can_publish(&dynamo_client, match_id).await? {
+        if match_id <= current_match_id {
+            continue;
+        } else {
             publish(&webhook_client,  &guild_id, &guild_name, &guild_logo, guild_match).await?;
-            save_new_current_match_id(&dynamo_client, match_id).await.map_err(|_| PollerError::Provider(ProviderError::Dynamo))?;
+            if match_id > latest_match_id {
+                latest_match_id = match_id;
+            }
         }
-        
+    }
+
+    if latest_match_id > current_match_id {
+        save_new_current_match_id(&dynamo_client, latest_match_id).await.map_err(|_| PollerError::Provider(ProviderError::Dynamo))?;
     }
 
     Ok(())
-}
-
-async fn can_publish(dynamo_client: &aws_sdk_dynamodb::Client, match_id: i64) -> Result<bool, Error> {
-    let current_match_id: i64 = get_current_match_id(dynamo_client).await?;
-    if match_id <= current_match_id {
-        return Ok(false);
-    }
-
-    return Ok(true);
 }
 
 async fn get_current_match_id(client: &aws_sdk_dynamodb::Client) -> Result<i64, Error> {
