@@ -28,8 +28,8 @@ export class NanTuanTrackerCdkStack extends Stack {
       handler: 'not.required',
       environment: {
         RUST_BACKTRACE: '1',
-        STRATZ_JWT: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiJodHRwczovL3N0ZWFtY29tbXVuaXR5LmNvbS9vcGVuaWQvaWQvNzY1NjExOTgxNTYxMzIyMDMiLCJ1bmlxdWVfbmFtZSI6IllvdGVsbCIsIlN1YmplY3QiOiJjZDNmMTJlOS1iMTg2LTRjNjMtYTg4NC1iZmE0NjQxMjg4OWMiLCJTdGVhbUlkIjoiMTk1ODY2NDc1IiwibmJmIjoxNjM2NzAwNjE2LCJleHAiOjE2NjgyMzY2MTYsImlhdCI6MTYzNjcwMDYxNiwiaXNzIjoiaHR0cHM6Ly9hcGkuc3RyYXR6LmNvbSJ9.znoKKTrxQB1BtnxH5zsf8oitr6jj_vN8rm8Dr6NyFWQ',
-        DISCORD_WEBHOOK_URL: 'https://discord.com/api/webhooks/1031066435075702824/gEnNJ2960J02TkOYQGhN1baIe5uDHBltYv5Vd5H4NUmY4B-uj6Ozr9DZTwqtb5PN3DAD',
+        STRATZ_JWT: '<insert_stratz_jwt>',
+        DISCORD_WEBHOOK_URL: '<insert_webhook_url>',
       },
       logRetention: RetentionDays.ONE_DAY,
       role: lambdaRole,
@@ -37,7 +37,7 @@ export class NanTuanTrackerCdkStack extends Stack {
     });
 
     const lambdaEventRule = new aws_events.Rule(this, 'lambdaScheduleRule', {
-      schedule: Schedule.rate(Duration.minutes(5)),
+      schedule: Schedule.rate(Duration.minutes(10)),
       targets: [new aws_events_targets.LambdaFunction(pollerLambda)]
     });
 
@@ -45,7 +45,7 @@ export class NanTuanTrackerCdkStack extends Stack {
       tableName: 'Guilds',
       billingMode: aws_dynamodb.BillingMode.PROVISIONED,
       readCapacity: 5,
-      writeCapacity: 10,
+      writeCapacity: 5,
       partitionKey: {
         name: 'id', 
         type: aws_dynamodb.AttributeType.NUMBER
