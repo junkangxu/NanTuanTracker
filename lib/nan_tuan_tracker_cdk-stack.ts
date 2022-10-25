@@ -8,8 +8,6 @@ export class NanTuanTrackerCdkStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    // TODO: Adding CloudWatch EventBridge to periodically trigger the lambda
-
     const lambdaRole = new aws_iam.Role(this, 'scannerLambdaRole', {
       assumedBy: new aws_iam.ServicePrincipal('lambda.amazonaws.com')
     });
