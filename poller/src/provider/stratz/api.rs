@@ -39,3 +39,24 @@ pub async fn fetch_matches(client: reqwest::Client, guild_id: i64, take: i64) ->
 
     Ok(data)
 }
+
+#[cfg(test)]
+mod tests {
+    
+    use std::env;
+    use super::api_url;
+
+    #[test]
+    #[should_panic(expected = "Missing STRATZ_JWT environmental variable")]
+    fn test_api_url_without_jwt() {
+        api_url();
+    }
+
+    #[test]
+    fn test_api_url() {
+        env::set_var("STRATZ_JWT", "JWT");
+        assert!(api_url().starts_with("https://api.stratz.com/graphql?jwt="));
+        env::remove_var("STRATZ_JWT");
+    }
+
+}

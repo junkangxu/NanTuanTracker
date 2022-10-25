@@ -335,3 +335,37 @@ fn match_hero_emoji(hero_id: i16) -> &'static str {
         _ => ":grey_question:",
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use crate::provider::stratz;
+    use super::{
+        MatchResult,
+        match_game_mode, 
+        match_hero_emoji, 
+        match_lobby_type, 
+        match_match_result, 
+    };
+
+    #[test]
+    fn test_match_match_result() {
+        assert_eq!("Victory", match_match_result(&MatchResult::Victory));
+    }
+
+    #[test]
+    fn test_match_lobby_type() {
+        assert_eq!("Unranked", match_lobby_type(&stratz::api::LobbyType::UNRANKED));
+    }
+
+    #[test]
+    fn test_match_game_mode() {
+        assert_eq!("All Pick", match_game_mode(&stratz::api::GameMode::ALL_PICK));
+    }
+
+    #[test]
+    fn test_match_hero_emoji() {
+        assert_eq!("<:primal_beast:958254609397342258>", match_hero_emoji(137));
+    }
+
+}
