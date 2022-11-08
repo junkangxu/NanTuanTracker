@@ -1,1 +1,1 @@
-pub mod kook_client;
+pub mod kook;

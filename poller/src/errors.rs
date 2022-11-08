@@ -20,7 +20,8 @@ pub enum ProviderError {
 
 #[derive(Clone, Debug)]
 pub enum PublisherError {
-    Discord
+    Discord,
+    Kook
 }
 
 impl std::error::Error for PollerError {}
@@ -60,7 +61,8 @@ impl std::fmt::Display for ProviderError {
 impl std::fmt::Display for PublisherError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Discord => write!(f, "{}", "PublisherError.Discord")
+            Self::Discord => write!(f, "{}", "PublisherError.Discord"),
+            Self::Kook => write!(f, "{}", "PublisherError.Kook")
         }
     }
 }

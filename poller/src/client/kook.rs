@@ -9,9 +9,25 @@ const AUTHORIZATION_HEADER: &str = "Authorization";
 const TOKEN_TYPE: &str = "Bot";
 const SEND_MESSAGE_ENDPOINT: &str = "/api/v3/message/create";
 
-struct KookClient {
+pub struct KookClient {
     token: String,
     client: reqwest::Client
+}
+
+pub enum MessageType {
+    TEXT,
+    KMARKDOWN,
+    CARD
+}
+
+impl MessageType {
+    fn to_value(&self) -> &str {
+        match self {
+            Self::TEXT => "1",
+            Self::KMARKDOWN => "9",
+            Self::CARD => "10"
+        }
+    }
 }
 
 impl KookClient {
@@ -22,10 +38,10 @@ impl KookClient {
 
     pub async fn publish_message(
         &self, 
-        option_message_type: Option<i32>, 
+        message_type: MessageType, 
         target_id: &str, 
         content: &str
-    ) -> Result<(), reqwest::Error> {
+    ) -> Result<reqwest::Response, reqwest::Error> {
         let url = format!("{}{}", BASE_URL, SEND_MESSAGE_ENDPOINT);
 
         let mut headers = HeaderMap::new();
@@ -33,11 +49,8 @@ impl KookClient {
         headers.insert(AUTHORIZATION_HEADER, HeaderValue::from_str(authorization_value.as_str()).unwrap());
 
         let mut params = HashMap::new();
-        let message_type = match option_message_type {
-            Some(x) => x.to_string(),
-            None => 1.to_string()
-        };
-        params.insert("type", message_type.as_str());
+        let message_type = message_type.to_value();
+        params.insert("type", message_type);
         params.insert("target_id", target_id);
         params.insert("content", content);
 
@@ -47,7 +60,9 @@ impl KookClient {
             .send()
             .await?;
             
-        return Ok(());
+        return Ok(response);
     }
+
+
 
 }
