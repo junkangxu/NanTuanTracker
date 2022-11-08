@@ -5,6 +5,7 @@ mod provider;
 mod errors;
 mod utils;
 mod publisher;
+mod client;
 
 use utils::dynamo;
 use lambda_runtime::LambdaEvent;

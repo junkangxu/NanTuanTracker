@@ -16,6 +16,11 @@ pub fn discord_webhook_url() -> String {
     return value;
 }
 
+pub fn kook_token() -> String {
+    let value = env::var("KOOK_TOKEN").expect("Missing KOOK_TOKEN environmental variable");
+    return value;
+}
+
 #[cfg(test)]
 mod tests {
 
