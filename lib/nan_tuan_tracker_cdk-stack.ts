@@ -26,8 +26,9 @@ export class NanTuanTrackerCdkStack extends Stack {
       handler: 'not.required',
       environment: {
         RUST_BACKTRACE: '1',
-        STRATZ_JWT: '<insert_stratz_jwt>',
-        DISCORD_WEBHOOK_URL: '<insert_webhook_url>',
+        STRATZ_JWT: '<insert STRATZ_JWT here>',
+        DISCORD_WEBHOOK_URL: '<insert DISCORD_WEBHOOK_URL here>',
+        KOOK_TOKEN: '<insert KOOK_TOKEN here>',
       },
       logRetention: RetentionDays.ONE_DAY,
       role: lambdaRole,
@@ -35,15 +36,15 @@ export class NanTuanTrackerCdkStack extends Stack {
     });
 
     const lambdaEventRule = new aws_events.Rule(this, 'lambdaScheduleRule', {
-      schedule: Schedule.rate(Duration.minutes(10)),
+      schedule: Schedule.rate(Duration.minutes(2)),
       targets: [new aws_events_targets.LambdaFunction(pollerLambda)]
     });
 
     const guildIdTable = new aws_dynamodb.Table(this , "GuildIdTable", {
       tableName: 'Guilds',
       billingMode: aws_dynamodb.BillingMode.PROVISIONED,
-      readCapacity: 5,
-      writeCapacity: 5,
+      readCapacity: 2,
+      writeCapacity: 2,
       partitionKey: {
         name: 'id', 
         type: aws_dynamodb.AttributeType.NUMBER

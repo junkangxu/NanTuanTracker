@@ -1,210 +1,74 @@
-use std::collections::HashMap;
 use lambda_runtime::Error;
+use super::publisher::PublishRecord;
+use super::utils::{transform_match_result, transform_lobby_type, transform_game_mode};
 
-use crate::provider::stratz;
-use crate::errors::{PollerError, ParserError, PublisherError};
-
-const MINIMUM_PLAYERS: usize = 1;
-const RADIANT: &str = "Radiant";
-const DIRE: &str = "Dire";
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-enum MatchResult {
-    None,
-    Victory,
-    Defeat,
-    Both
+pub struct WebhookPublisher {
+    pub client: webhook::client::WebhookClient
 }
 
-pub async fn publish(
-    client: &webhook::client::WebhookClient,
-    guild_id: &i64, 
-    guild_name: &str, 
-    guild_logo: &str, 
-    guild_match: stratz::api::Match
-) -> Result<(), Error> {
-    let match_id = guild_match.id.ok_or_else(|| PollerError::Parser(ParserError::Match))?;
-    let players = guild_match.players.ok_or_else(|| PollerError::Parser(ParserError::Match))?;
-    if players.len() < MINIMUM_PLAYERS {
-        return Ok(());
+impl WebhookPublisher {
+
+    pub async fn publish(&self, publish_record: &PublishRecord) -> Result<(), Error> {
+        self.client.send(|mut message| {
+            message = message.content(&format!("https://stratz.com/matches/{}", publish_record.match_id));
+            message = message.embed(|mut embed| {
+                embed = embed.author(
+                    &publish_record.guild_name,
+                    Some(format!("https://stratz.com/guilds/{}", publish_record.guild_id)),
+                    Some(format!("https://steamusercontent-a.akamaihd.net/ugc/{}/", publish_record.guild_logo))
+                );
+                embed = embed.title(&format!(
+                    "{} - {} - {}",
+                    transform_match_result(&publish_record.match_result),
+                    transform_lobby_type(&publish_record.lobby_type),
+                    transform_game_mode(&publish_record.game_mode)
+                ));
+
+                let mut radiant_field = String::new();
+                for player_stats in publish_record.player_stats_radiant.iter() {
+                    let line = format!("{} {} [{}/{}/{}]\n",
+                        match_hero_emoji(player_stats.hero_id),
+                        player_stats.name,
+                        player_stats.kills,
+                        player_stats.deaths,
+                        player_stats.assists
+                    );
+                    radiant_field.push_str(&line);
+                }
+
+                let mut dire_field = String::new();
+                for player_stats in publish_record.player_stats_dire.iter() {
+                    let line = format!("{} {} [{}/{}/{}]\n",
+                        match_hero_emoji(player_stats.hero_id),
+                        player_stats.name,
+                        player_stats.kills,
+                        player_stats.deaths,
+                        player_stats.assists
+                    );
+                    dire_field.push_str(&line);
+                }
+
+                if radiant_field.len() > 0 {
+                    embed = embed.field("<:radiant:958274781919207505> Radiant", &radiant_field, true);
+                }
+
+                if dire_field.len() > 0 {
+                    embed = embed.field("<:dire:958274694203719740> Dire", &dire_field, true);
+                }
+
+                embed = embed.field(":clock3: Duration", &publish_record.duration_field, false);
+                embed = embed.footer("Powered by STRATZ", Some(String::from("https://cdn.discordapp.com/icons/268890221943324677/12b63c55a83a715ec569e91e40641db0.webp?size=96")));
+                embed = embed.timestamp(&publish_record.end.to_rfc3339());
+
+                return embed;
+            });
+
+            return message;
+        }).await?;
+
+        Ok(())
     }
 
-    let match_result = get_match_result(players.clone()).await?;
-    let lobby_type = guild_match.lobby_type.ok_or_else(|| PollerError::Parser(ParserError::Match))?;
-    let game_mode = guild_match.game_mode.ok_or_else(|| PollerError::Parser(ParserError::Match))?;
-    
-    let duration = guild_match.duration_seconds.ok_or_else(|| PollerError::Parser(ParserError::Match))?;
-    let duration = chrono::Duration::seconds(duration);
-    let end = guild_match.end_date_time.ok_or_else(|| PollerError::Parser(ParserError::Match))?;
-    let end = i64::try_from(end).map_err(|_| PollerError::Parser(ParserError::Match))?;
-    let end = chrono::NaiveDateTime::from_timestamp(end, 0);
-    let end = chrono::DateTime::<chrono::Utc>::from_utc(end, chrono::Utc);
-
-    let mins = duration.num_seconds() / 60;
-    let secs = duration.num_seconds() % 60;
-    let duration_field = format!("{}:{:02}", &mins, &secs);
-
-    let players_by_team = get_players_by_team(players.clone()).await?;
-    let radiant_players = players_by_team.get(RADIANT).unwrap();
-    let mut radiant_field = String::new();
-    for player in radiant_players.clone() {
-        let line = render_player(player)?;
-        radiant_field.push_str(&line);
-        radiant_field.push('\n');
-    }
-    let dire_players = players_by_team.get(DIRE).unwrap();
-    let mut dire_field = String::new();
-    for player in dire_players.clone() {
-        let line = render_player(player)?;
-        dire_field.push_str(&line);
-        dire_field.push('\n');
-    }
-
-    client.send(|mut message| {
-        message = message.content(&*format!("https://stratz.com/matches/{}", &match_id));
-        message = message.embed(|mut embed| {
-            embed = embed.author(
-                guild_name,
-                Some(format!("https://stratz.com/guilds/{}", &guild_id)),
-                Some(format!("https://steamusercontent-a.akamaihd.net/ugc/{}/", &guild_logo))
-            );
-            embed = embed.title(&*format!(
-                "{} - {} - {}", 
-                match_match_result(&match_result),
-                match_lobby_type(&lobby_type),
-                match_game_mode(&game_mode)
-            ));
-            
-            if radiant_field.len() > 0 {
-                embed = embed.field("<:radiant:958274781919207505> Radiant", &radiant_field, true);
-            }
-
-            if dire_field.len() > 0 {
-                embed = embed.field("<:dire:958274694203719740> Dire", &dire_field, true);
-            }
-
-            embed = embed.field(":clock3: Duration", &duration_field, false);
-            embed = embed.footer("Powered by STRATZ", Some(String::from("https://cdn.discordapp.com/icons/268890221943324677/12b63c55a83a715ec569e91e40641db0.webp?size=96")));
-            embed = embed.timestamp(&end.to_rfc3339());
-
-            return embed;
-        });
-        return message;
-    }).await.map_err(|_| PollerError::Publisher(PublisherError::Discord))?;
-
-    Ok(())
-}
-
-async fn get_match_result(players: Vec<Option<stratz::api::Player>>) -> Result<MatchResult, Error> {
-    let mut is_victory = false;
-    let mut is_defeat = false;
-    for player in players.into_iter() {
-        let player = player.ok_or_else(|| PollerError::Parser(ParserError::Player))?;
-        let player_result = player.is_victory.ok_or_else(|| PollerError::Parser(ParserError::Player))?;
-        match player_result {
-            true => is_victory = true,
-            false => is_defeat = true,
-        }
-    }
-
-    match (is_victory, is_defeat) {
-        (false, false) => Ok(MatchResult::None),
-        (true, false) => Ok(MatchResult::Victory),
-        (false, true) => Ok(MatchResult::Defeat),
-        (true, true) => Ok(MatchResult::Both)
-    }
-
-}
-
-async fn get_players_by_team(players: Vec<Option<stratz::api::Player>>) -> Result<HashMap<&'static str, Vec<stratz::api::Player>>, Error> {
-    let mut radiant_players: Vec<stratz::api::Player> = Vec::new();
-    let mut dire_players: Vec<stratz::api::Player> = Vec::new();
-    for player in players.into_iter() {
-        let player = player.ok_or_else(|| PollerError::Parser(ParserError::Player))?;
-        let player_team = player.is_radiant.ok_or_else(|| PollerError::Parser(ParserError::Player))?;
-        match player_team {
-            true => radiant_players.push(player),
-            false => dire_players.push(player)
-        }
-    }
-
-    Ok(HashMap::from(
-        [(RADIANT, radiant_players), (DIRE, dire_players)]
-    ))
-}
-
-fn match_match_result(match_result: &MatchResult) -> &'static str {
-    match match_result {
-        MatchResult::None => "Cancelled",
-        MatchResult::Victory => "Victory",
-        MatchResult::Defeat => "Defeat",
-        MatchResult::Both => "Clash"
-    }
-}
-
-fn match_lobby_type(lobby_type: &stratz::api::LobbyType) -> &'static str {
-    match lobby_type {
-        stratz::api::LobbyType::UNRANKED => "Unranked",
-        stratz::api::LobbyType::PRACTICE => "Lobby",
-        stratz::api::LobbyType::TOURNAMENT => "The International",
-        stratz::api::LobbyType::TUTORIAL => "Tutorial",
-        stratz::api::LobbyType::COOP_VS_BOTS => "Bots",
-        stratz::api::LobbyType::TEAM_MATCH => "Guild",
-        stratz::api::LobbyType::SOLO_QUEUE => "Solo Ranked",
-        stratz::api::LobbyType::RANKED => "Ranked",
-        stratz::api::LobbyType::SOLO_MID => "Duel",
-        stratz::api::LobbyType::BATTLE_CUP => "Battle Cup",
-        stratz::api::LobbyType::EVENT => "Event",
-        _ => "Unknown",
-    }
-}
-
-fn match_game_mode(game_mode: &stratz::api::GameMode) -> &'static str {
-    match game_mode {
-        stratz::api::GameMode::NONE => "None",
-        stratz::api::GameMode::ALL_PICK => "All Pick",
-        stratz::api::GameMode::CAPTAINS_MODE => "Captains Mode",
-        stratz::api::GameMode::RANDOM_DRAFT => "Random Draft",
-        stratz::api::GameMode::SINGLE_DRAFT => "Single Draft",
-        stratz::api::GameMode::ALL_RANDOM => "All Random",
-        stratz::api::GameMode::INTRO => "Intro",
-        stratz::api::GameMode::THE_DIRETIDE => "Diretide",
-        stratz::api::GameMode::REVERSE_CAPTAINS_MODE => "Reverse Captains Mode",
-        stratz::api::GameMode::THE_GREEVILING => "Greeviling",
-        stratz::api::GameMode::TUTORIAL => "Tutorial",
-        stratz::api::GameMode::MID_ONLY => "Mid Only",
-        stratz::api::GameMode::LEAST_PLAYED => "Least Played",
-        stratz::api::GameMode::NEW_PLAYER_POOL => "Limited Heroes",
-        stratz::api::GameMode::COMPENDIUM_MATCHMAKING => "Compendium",
-        stratz::api::GameMode::CUSTOM => "Custom",
-        stratz::api::GameMode::CAPTAINS_DRAFT => "Captains Draft",
-        stratz::api::GameMode::BALANCED_DRAFT => "Balanced Draft",
-        stratz::api::GameMode::ABILITY_DRAFT => "Ability Draft",
-        stratz::api::GameMode::EVENT => "Event",
-        stratz::api::GameMode::ALL_RANDOM_DEATH_MATCH => "All Random Deathmatch",
-        stratz::api::GameMode::SOLO_MID => "Solo Mid",
-        stratz::api::GameMode::ALL_PICK_RANKED => "All Draft",
-        stratz::api::GameMode::TURBO => "Turbo",
-        stratz::api::GameMode::MUTATION => "Mutation",
-        _ => "Unknown",
-    }
-}
-
-fn render_player(player: stratz::api::Player) -> Result<String, PollerError> {
-    let steam = player.steam_account.ok_or_else(|| PollerError::Parser(ParserError::Player))?;
-    let name = steam.name.ok_or_else(|| PollerError::Parser(ParserError::Player))?;
-    let hero = player.hero.ok_or_else(|| PollerError::Parser(ParserError::Player))?;
-    let hero_id = hero.id.ok_or_else(|| PollerError::Parser(ParserError::Player))?;
-    let kills = player.kills.ok_or_else(|| PollerError::Parser(ParserError::Player))?;
-    let deaths = player.deaths.ok_or_else(|| PollerError::Parser(ParserError::Player))?;
-    let assists = player.assists.ok_or_else(|| PollerError::Parser(ParserError::Player))?;
-    let emoji = match_hero_emoji(hero_id);
-
-    if let Some(imp) = player.imp {
-        Ok(format!("{} {} [{}/{}/{}] `{:+}`", &emoji, &name, &kills, &deaths, &assists, &imp))
-    } else {
-        Ok(format!("{} {} [{}/{}/{}]", &emoji, &name, &kills, &deaths, &assists))
-    }
 }
 
 fn match_hero_emoji(hero_id: i16) -> &'static str {
@@ -334,38 +198,4 @@ fn match_hero_emoji(hero_id: i16) -> &'static str {
         137 => "<:primal_beast:958254609397342258>",
         _ => ":grey_question:",
     }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use crate::provider::stratz;
-    use super::{
-        MatchResult,
-        match_game_mode, 
-        match_hero_emoji, 
-        match_lobby_type, 
-        match_match_result, 
-    };
-
-    #[test]
-    fn test_match_match_result() {
-        assert_eq!("Victory", match_match_result(&MatchResult::Victory));
-    }
-
-    #[test]
-    fn test_match_lobby_type() {
-        assert_eq!("Unranked", match_lobby_type(&stratz::api::LobbyType::UNRANKED));
-    }
-
-    #[test]
-    fn test_match_game_mode() {
-        assert_eq!("All Pick", match_game_mode(&stratz::api::GameMode::ALL_PICK));
-    }
-
-    #[test]
-    fn test_match_hero_emoji() {
-        assert_eq!("<:primal_beast:958254609397342258>", match_hero_emoji(137));
-    }
-
 }

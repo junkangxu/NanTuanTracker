@@ -5,8 +5,8 @@ mod provider;
 mod errors;
 mod utils;
 mod publisher;
-mod client;
 
+use publisher::publisher::Publisher;
 use utils::dynamo;
 use lambda_runtime::LambdaEvent;
 use lambda_runtime::{Error, service_fn};
@@ -18,7 +18,6 @@ use crate::errors::PublisherError;
 use crate::errors::ParserError;
 use crate::errors::ProviderError;
 use crate::provider::stratz;
-use crate::publisher::webhook::publish;
 
 const TAKE: i64 = 5;
 const GUILD_ID: i64 = 117311;
@@ -41,7 +40,6 @@ async fn handler(_event: LambdaEvent<Value>) -> Result<Value, Error> {
 
 async fn process() -> Result<(), Error> {
     let http_client = reqwest::Client::new();
-    let webhook_client = webhook::client::WebhookClient::new(&config::discord_webhook_url());
     let response = stratz::api::fetch_matches(http_client, GUILD_ID, TAKE).await.map_err(|_e| PollerError::Provider(ProviderError::Stratz))?;
     if let Some(errors) = response.errors {
         error!("Error in SRATZ response: {:#?}", errors);
@@ -66,7 +64,7 @@ async fn process() -> Result<(), Error> {
         if match_id <= current_match_id {
             continue;
         } else {
-            publish(&webhook_client,  &guild_id, &guild_name, &guild_logo, guild_match).await?;
+            Publisher::publish(guild_id, &guild_name, &guild_logo, guild_match).await?;
             if match_id > latest_match_id {
                 latest_match_id = match_id;
             }
