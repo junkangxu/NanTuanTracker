@@ -13,7 +13,7 @@ const CREATE_MESSAGE_ENDPOINT: &str = "https://www.kookapp.cn/api/v3/message/cre
 const TOKEN_TYPE: &str = "Bot";
 
 /// Struct to serialize and deserialize Element of Kook Module
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct Element {
     #[serde(rename = "type")]
     element_type: String,
@@ -21,7 +21,7 @@ struct Element {
 }
 
 /// Struct to serialize and deserialize Text of Kook Module
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct Text {
     #[serde(rename = "type")]
     text_type: String,
@@ -29,7 +29,7 @@ struct Text {
 }
 
 /// Struct to serialize and deserialize Module of Kook Card
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct Module {
     #[serde(rename = "type")]
     module_type: String,
@@ -77,7 +77,7 @@ impl KookPublisher {
 
         let mut radiant_field = String::new();
         for player_stats in publish_record.player_stats_radiant.iter() {
-            let line = format!("**{}** *{}* [{}/{}/{}]\n", 
+            let line = format!("{} - {} - [{}/{}/{}]\n",
                 &player_stats.name, player_stats.hero_display_name, player_stats.kills, player_stats.deaths, player_stats.assists
             );
             radiant_field.push_str(&line);
@@ -85,46 +85,51 @@ impl KookPublisher {
 
         let mut dire_field = String::new();
         for player_stats in publish_record.player_stats_dire.iter() {
-            let line = format!("**{}** *{}* [{}/{}/{}]\n", 
+            let line = format!("{} - {} - [{}/{}/{}]\n",
                 &player_stats.name, player_stats.hero_display_name, player_stats.kills, player_stats.deaths, player_stats.assists
             );
             dire_field.push_str(&line);
         }
 
-        let mut content = String::new();
-        content.push_str(
+        let mut header_content = String::new();
+        header_content.push_str(
             &format!("[{}]({}) - [{}]({})\n",
                 publish_record.guild_name, guild_link, publish_record.match_id, match_link
             )
         );
-        content.push_str(
+        header_content.push_str(
             &format!("**{} - {} - {}** *{}*\n",
                 match_result, lobby_type, game_mode, publish_record.duration_field
             )
         );
 
+        let mut body_content = String::new();
         if radiant_field.len() > 0 {
-            content.push_str(&format!("(ins)Radiant(ins)\n{}", radiant_field));
+            body_content.push_str(&format!("(ins)Radiant(ins)\n{}", radiant_field));
         }
-
         if dire_field.len() > 0 {
-            content.push_str(&format!("(ins)Dire(ins)\n{}", dire_field));
+            body_content.push_str(&format!("(ins)Dire(ins)\n{}", dire_field));
         }
 
-        let text = Text {
+        let header_text = Text {
             text_type: "kmarkdown".to_string(),
-            content: content.clone()
+            content: header_content.clone()
         };
 
-        let first_module = Module {
+        let body_text = Text {
+            text_type: "kmarkdown".to_string(),
+            content: body_content.clone()
+        };
+
+        let header_module = Module {
             module_type: "section".to_string(),
-            text: Some(text),
+            text: Some(header_text),
             elements: Vec::new()
         };
 
-        let second_module = Module {
-            module_type: "divider".to_string(),
-            text: None,
+        let body_module = Module {
+            module_type: "section".to_string(),
+            text: Some(body_text),
             elements: Vec::new()
         };
 
@@ -133,10 +138,16 @@ impl KookPublisher {
             content: "Powered by STRATZ".to_string()
         };
 
-        let third_module = Module {
+        let footer_module = Module {
             module_type: "context".to_string(),
             text: None,
             elements: vec!(element)
+        };
+
+        let divider_module = Module {
+            module_type: "divider".to_string(),
+            text: None,
+            elements: Vec::new()
         };
 
         let theme = match publish_record.match_result {
@@ -150,7 +161,7 @@ impl KookPublisher {
             card_type: "card".to_string(),
             theme,
             size: "sm".to_string(),
-            modules: vec![first_module, second_module, third_module]
+            modules: vec![header_module, divider_module.clone(), body_module, divider_module.clone(), footer_module]
         };
 
         let card_message = CardMessage {
