@@ -64,6 +64,7 @@ struct CardMessage {
     pub cards: Vec<Card>
 }
 
+/// Struct containing data needed to format Header module
 pub struct HeaderModuleData<'a> {
     guild_name: &'a String,
     guild_link: &'a String,
@@ -75,6 +76,7 @@ pub struct HeaderModuleData<'a> {
     duration: &'a String
 }
 
+/// Struct containing data needed to format Body module
 pub struct BodyModuleData<'a> {
     radiant: &'a String,
     dire: &'a String
@@ -106,7 +108,7 @@ impl KookPublisher {
             duration: &publish_record.duration_field
         };
 
-        // Construct BodyModuleData for data to format Header Module of Kook Card Message
+        // Construct BodyModuleData
         let body_module_data = BodyModuleData {
             radiant: &self.get_players_stats(&publish_record.player_stats_radiant),
             dire: &self.get_players_stats(&publish_record.player_stats_dire)
