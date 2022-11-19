@@ -23,6 +23,7 @@ const TAKE: i64 = 5;
 const GUILD_ID: i64 = 117311;
 const GUILD_TABLE_NAME: &str = "Guilds";
 
+/// The entry point of AWS Lambda Function
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let func = service_fn(handler);
@@ -78,11 +79,13 @@ async fn process() -> Result<(), Error> {
     Ok(())
 }
 
+/// The wrapper of AWS DynamoDB GetItem operation to get the latest match id we already processed.
 async fn get_current_match_id(client: &aws_sdk_dynamodb::Client) -> Result<i64, Error> {
     let item = dynamo::get_item(client, GUILD_TABLE_NAME, GUILD_ID).await?;
     Ok(item.item().unwrap().get("match_id").unwrap().as_n().unwrap().parse::<i64>().unwrap())
 }
 
+/// The wrapper of AWS DynamoDB PutItem operation to put the latest match id we just process
 async fn save_new_current_match_id(client: &aws_sdk_dynamodb::Client, match_id: i64) -> Result<(), Error> {
     dynamo::put_item(client, GUILD_TABLE_NAME, GUILD_ID, match_id).await?;
     Ok(())

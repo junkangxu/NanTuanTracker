@@ -2,6 +2,11 @@ use crate::provider::stratz;
 
 use super::publisher::MatchResult;
 
+/// Transform MatchResult struct to String literals
+/// 
+/// # Arguments
+/// 
+/// * `match_result` - The match result of a dota2 game
 pub fn transform_match_result(match_result: &MatchResult) -> String {
     let result = match match_result {
         MatchResult::None => "Cancelled",
@@ -13,6 +18,11 @@ pub fn transform_match_result(match_result: &MatchResult) -> String {
     result.to_string()
 }
 
+/// Transform LobbyType struct to String literals
+/// 
+/// # Arguments
+/// 
+/// * `lobby_type` - The lobby type of a dota2 game
 pub fn transform_lobby_type(lobby_type: &stratz::api::LobbyType) -> String {
     let result = match lobby_type {
         stratz::api::LobbyType::UNRANKED => "Unranked",
@@ -32,6 +42,11 @@ pub fn transform_lobby_type(lobby_type: &stratz::api::LobbyType) -> String {
     result.to_string()
 }
 
+/// Transform GameMode struct to String literals
+/// 
+/// # Arguments
+/// 
+/// * `game_mode` - The game mode of a dota2 game
 pub fn transform_game_mode(game_mode: &stratz::api::GameMode) -> String {
     let result = match game_mode {
         stratz::api::GameMode::NONE => "None",

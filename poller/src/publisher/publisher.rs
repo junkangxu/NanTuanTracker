@@ -9,6 +9,7 @@ const RADIANT: &str = "Radiant";
 const DIRE: &str = "Dire";
 const KOOK_TARGET_ID: &str = "3193188266865676";
 
+/// Enum to match Match Result
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum MatchResult {
     None,
@@ -17,6 +18,7 @@ pub enum MatchResult {
     Both
 }
 
+/// Struct to contain Player stats of a match
 pub struct PlayerStats {
     pub hero_id: i16,
     pub hero_display_name: String,
@@ -26,6 +28,7 @@ pub struct PlayerStats {
     pub assists: u8
 }
 
+/// Struct to contain data to be published
 pub struct PublishRecord {
     pub match_id: String,
     pub guild_id: String,
@@ -40,9 +43,21 @@ pub struct PublishRecord {
     pub end: chrono::DateTime<chrono::Utc>
 }
 
+/// Struct for the entry point of publishers
 pub struct Publisher;
 
 impl Publisher {
+
+    /// Extract useful information to PublishRecord and pass it to different publishers, such as
+    /// - Discord Webhook
+    /// - Kook Bot
+    /// 
+    /// # Arguments
+    /// 
+    /// - `guild_id` - The id of Dota2 guild
+    /// - `guild_name` - The name of Dota2 guild
+    /// - `guild_logo` - The logo url of Dota2 guild
+    /// - `guild_match` - The match result of a Dota2 match
     pub async fn publish(
         guild_id: i64,
         guild_name: &str,
@@ -111,6 +126,11 @@ impl Publisher {
     }
 }
 
+/// Transform Stratz MatchResult to Rust tuples
+/// 
+/// # Arguments
+/// 
+/// * `players` - The vector of players in the match
 fn get_match_result(players: &Vec<Option<stratz::api::Player>>) -> Result<MatchResult, Error> {
     let mut is_victory = false;
     let mut is_defeat = false;
@@ -131,6 +151,12 @@ fn get_match_result(players: &Vec<Option<stratz::api::Player>>) -> Result<MatchR
     }
 }
 
+/// Match players based on their team. The return value will be a HashMap with hash key Radiant and Dire. And the
+/// corresponding values are players on each side.
+/// 
+/// # Arguments
+/// 
+/// * `players` - The vector of players in the match
 fn get_players_by_team(players: &Vec<Option<stratz::api::Player>>) -> Result<HashMap<String, Vec<stratz::api::Player>>, Error> {
     let mut radiant_players = Vec::new();
     let mut dire_players = Vec::new();
@@ -151,6 +177,11 @@ fn get_players_by_team(players: &Vec<Option<stratz::api::Player>>) -> Result<Has
     ))
 }
 
+/// Extract data from Stratz API player struct and return as a PlayerStats struct.
+/// 
+/// # Arguments
+/// 
+/// * `player` - The player struct from Stratz API
 fn get_player_stats(player: &stratz::api::Player) -> Result<PlayerStats, Error> {
     let hero = player.hero.as_ref().unwrap();
 

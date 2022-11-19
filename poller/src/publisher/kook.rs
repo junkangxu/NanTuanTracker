@@ -3,12 +3,16 @@ use std::collections::HashMap;
 use lambda_runtime::Error;
 use reqwest::header::AUTHORIZATION;
 use serde::{Serialize, Deserialize};
-use crate::{config::kook_token};
-use super::{publisher::{PublishRecord, MatchResult}, utils::{transform_match_result, transform_lobby_type, transform_game_mode}};
+use crate::config::kook_token;
+use super::{publisher::
+    {PublishRecord, MatchResult}, 
+    utils::{transform_match_result, transform_lobby_type, transform_game_mode}
+};
 
 const CREATE_MESSAGE_ENDPOINT: &str = "https://www.kookapp.cn/api/v3/message/create";
 const TOKEN_TYPE: &str = "Bot";
 
+/// Struct to serialize and deserialize Element of Kook Module
 #[derive(Serialize, Deserialize, Debug)]
 struct Element {
     #[serde(rename = "type")]
@@ -16,6 +20,7 @@ struct Element {
     content: String
 }
 
+/// Struct to serialize and deserialize Text of Kook Module
 #[derive(Serialize, Deserialize, Debug)]
 struct Text {
     #[serde(rename = "type")]
@@ -23,6 +28,7 @@ struct Text {
     content: String
 }
 
+/// Struct to serialize and deserialize Module of Kook Card
 #[derive(Serialize, Deserialize, Debug)]
 struct Module {
     #[serde(rename = "type")]
@@ -33,6 +39,7 @@ struct Module {
     elements: Vec<Element>
 }
 
+/// Struct to serialize and deserialize Card of Kook CardMessage
 #[derive(Serialize, Deserialize, Debug)]
 struct Card {
     #[serde(rename = "type")]
@@ -42,17 +49,25 @@ struct Card {
     modules: Vec<Module>
 }
 
+/// Struct to serialize and deserialize Kook CardMessage
 #[derive(Serialize, Deserialize, Debug)]
 struct CardMessage {
     pub cards: Vec<Card>
 }
 
+/// Kook Publisher
 pub struct KookPublisher {
     pub client: reqwest::Client
 }
 
 impl KookPublisher {
 
+    /// Format `publish_record` and publish the formatted data to Kook
+    ///
+    /// # Arguments
+    /// 
+    /// * `target_id` - The id of target, a.k.a the id of channel
+    /// * `publish_record` - The data POJO to be published
     pub async fn publish(&self, target_id: &str, publish_record: &PublishRecord) -> Result<(), Error> {
         let guild_link = format!("https://stratz.com/guilds/{}", publish_record.guild_id);
         let match_link = format!("https://stratz.com/matches/{}", publish_record.match_id);

@@ -20,10 +20,18 @@ pub use matches_query::MatchesQueryGuildMatchesPlayers as Player;
 pub use matches_query::MatchesQueryGuildMatchesPlayersHero as Hero;
 pub use matches_query::MatchesQueryGuildMatchesPlayersSteamAccount as Steam;
 
+/// Get the Stratz API url
 fn api_url() -> String {
     format!("https://api.stratz.com/graphql?jwt={}", &config::stratz_jwt())
 }
 
+/// Fetches Dota2 matchces with given guild_id and take
+/// 
+/// # Arguments
+/// 
+/// * `client` - http client.
+/// * `guild` - The id of Dota2 guild.
+/// * `take` - The number of matches to be fetched
 pub async fn fetch_matches(client: reqwest::Client, guild_id: i64, take: i64) -> Result<Response, PublisherError> {
     let vars = Variable {guild_id, take};
     let body = MatchesQuery::build_query(vars);

@@ -2,12 +2,18 @@ use lambda_runtime::Error;
 use super::publisher::PublishRecord;
 use super::utils::{transform_match_result, transform_lobby_type, transform_game_mode};
 
+/// Webhook Publisher
 pub struct WebhookPublisher {
     pub client: webhook::client::WebhookClient
 }
 
 impl WebhookPublisher {
 
+    /// Format `publish_record` and publish the formatted data to Discord
+    ///
+    /// # Arguments
+    /// 
+    /// * `publish_record` - The data POJO to be published
     pub async fn publish(&self, publish_record: &PublishRecord) -> Result<(), Error> {
         self.client.send(|mut message| {
             message = message.content(&format!("https://stratz.com/matches/{}", publish_record.match_id));
@@ -71,6 +77,11 @@ impl WebhookPublisher {
 
 }
 
+/// Match hero id to discord dota2 emoji and return a String literal representing a discord dota2 emoji
+/// 
+/// # Arguments
+/// 
+/// * `hero_id` - The id of a Dota2 hero
 fn match_hero_emoji(hero_id: i16) -> &'static str {
     match hero_id {
         1 => "<:antimage:958248644652458005>",
