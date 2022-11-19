@@ -65,4 +65,5 @@ mod tests {
         assert_eq!(kook_token(), "TestingToken");
         env::remove_var("KOOK_TOKEN");
     }
+
 }

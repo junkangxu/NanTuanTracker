@@ -1,5 +1,5 @@
+use lambda_runtime::Error;
 use crate::config;
-use crate::PublisherError;
 use graphql_client::GraphQLQuery;
 
 type Short = i16;
@@ -20,51 +20,31 @@ pub use matches_query::MatchesQueryGuildMatchesPlayers as Player;
 pub use matches_query::MatchesQueryGuildMatchesPlayersHero as Hero;
 pub use matches_query::MatchesQueryGuildMatchesPlayersSteamAccount as Steam;
 
-/// Get the Stratz API url
-fn api_url() -> String {
-    format!("https://api.stratz.com/graphql?jwt={}", &config::stratz_jwt())
+/// Stratz API Client as Dota data provider
+pub struct StratzClient {
+    pub client: reqwest::Client
 }
 
-/// Fetches Dota2 matchces with given guild_id and take
-/// 
-/// # Arguments
-/// 
-/// * `client` - http client.
-/// * `guild` - The id of Dota2 guild.
-/// * `take` - The number of matches to be fetched
-pub async fn fetch_matches(client: reqwest::Client, guild_id: i64, take: i64) -> Result<Response, PublisherError> {
-    let vars = Variable {guild_id, take};
-    let body = MatchesQuery::build_query(vars);
-    let response = client.post(api_url()).json(&body).send().await.map_err(|err| {
-        error!("Error while performing request: {:#?}", &err);
-        PublisherError::Discord
-    })?;
+impl StratzClient {
 
-    let data = response.json::<Response>().await.map_err(|err| {
-        error!("Error while parsing response: {:#?}", &err);
-        PublisherError::Discord
-    })?;
+    /// Fetch Dota2 matches based on guild_id and take
+    /// 
+    /// # Arguments
+    /// 
+    /// * `guild_id` - The guild_id we will use to get matches from
+    /// * `take` - The number of matches to be fetched
+    pub async fn fetch_matches(&self, guild_id: i64, take: i64) -> Result<Response, Error> {
+        let vars = Variable { guild_id, take };
+        let body = MatchesQuery::build_query(vars);
+        let response = self.client.post(StratzClient::api_url()).json(&body).send().await?;
+        let data = response.json::<Response>().await?;
 
-    Ok(data)
-}
-
-#[cfg(test)]
-mod tests {
-    
-    use std::env;
-    use super::api_url;
-
-    #[test]
-    #[should_panic(expected = "Missing STRATZ_JWT environmental variable")]
-    fn test_api_url_without_jwt() {
-        api_url();
+        Ok(data)
     }
 
-    #[test]
-    fn test_api_url() {
-        env::set_var("STRATZ_JWT", "JWT");
-        assert!(api_url().starts_with("https://api.stratz.com/graphql?jwt="));
-        env::remove_var("STRATZ_JWT");
+    /// Get the API URL of Stratz API
+    fn api_url() -> String {
+        format!("https://api.stratz.com/graphql?jwt={}", &config::stratz_jwt())
     }
 
 }
